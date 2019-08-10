@@ -1,0 +1,114 @@
+      SUBROUTINE MPFSTEEL(TE,TS,TK,CE,CS,CK,HIST,PROP)
+C------------------------------------------------------------------------------
+C     THIS SUBROUTINE PROVIDES COMPUTATION OF MENEGOTTO-PINTO STEEL MODEL
+C     WITH THE SUPPORT OF BOTH ISOTROPIC HARDENING BY FILIPPOU AND CONSTANT RADIUS
+C------------------------------------------------------------------------------
+C     TE(IN)       : TRIAL STRAIN (1)
+C     TS(OUT)      : TRIAL STRESS (1)
+C     TK(OUT)      : TRIAL STIFFNESS (1)
+C     CE(IN)       : CURRENT STRAIN (1)
+C     CS(IN)       : CURRENT STRESS (1)
+C     CK(IN)       : CURRENT STIFFNESS (1)
+C     HIST(IN/OUT) : ARRAY OF HISTORY VARIABLES AND CONSTANTS (7)
+C     PROP(IN)     : ARRAY OF CONSTANTS (10)
+C------------------------------------------------------------------------------
+C     HISTORY VARIABLES:
+C         HIST(1)  : REVERSE STRESS ==> 0D0
+C         HIST(2)  : REVERSE STRAIN ==> 0D0
+C         HIST(3)  : INTERSECT STRESS ==> 0D0
+C         HIST(4)  : INTERSECT STRAIN ==> 0D0
+C         HIST(5)  : PREVIOUS INTERSECT STRAIN ==> 0D0
+C         HIST(6)  : MAXIMUM STRAIN ==> 0D0
+C         HIST(7)  : LOAD DIRECTION ==> 0D0
+C     CONSTANTS:
+C         PROP(1)  : ELASTIC MODULUS
+C         PROP(2)  : YIELD STRESS
+C         PROP(3)  : HARDENIGN RATIO
+C         PROP(4)  : R0 (20.0)
+C         PROP(5)  : A1 (18.5)
+C         PROP(6)  : A2 (0.15)
+C         PROP(7)  : A3 (0.01)
+C         PROP(8)  : A4 (7.00)
+C         PROP(9)  : ISOTROPIC HARDENING SWITCH (1D0=ON, 0D0=OFF)
+C         PROP(10) : CONSTANT RADIUS SWITCH (1D0=ON, 0D0=OFF)
+C------------------------------------------------------------------------------
+C     USAGE:
+C         1. CURRENT POINT IS DENOTED AS (CE,CS), CURRENT STRAIN AND CURRENT STRESS
+C         2. THE NEW POINT IS DENOTED AS (TE,TS) WITH A STIFFNESS TK
+C         3. PROP STORES ALL CONSTANTS NEEDED WHICH SHALL BE FILLED BEFORE CALLING
+C         4. HIST STORES HISTORY VAIRBALES
+C         5. CALL SUBROUITNE MPFSTEEL(TE,TS,TK,CE,CS,CK,HIST,PROP)
+C         6. TE,TS,TK NOW HAVE PROPER RESULTS
+C         7. HIST WILL BE MODIFIED ACCORDINGLY, MAKE A COPY BEFORE CALLING WHERE NECESSARY
+C------------------------------------------------------------------------------
+C
+      IMPLICIT NONE
+
+      DOUBLEPRECISION TE,TS,TK,CE,CS,CK,HIST(7),PROP(10)
+
+      DOUBLEPRECISION IE
+C     SHIFTSTRESS AND TRIAL LOAD DIRECTION
+      DOUBLEPRECISION SS,TLS
+C     RADIUS RELATED VARIABLES
+      DOUBLEPRECISION TR,XI
+C     NORMALIZED STRAIN AND STRESS
+      DOUBLEPRECISION NE,NS
+C     TEMP VARIABELS
+      DOUBLEPRECISION TMPA,TMPB,TMPC,TMPD
+
+      IE=TE-CE
+      IF(ABS(IE).LT.1D-10)THEN
+         TS=CS
+         TK=CK
+         GOTO 90
+      ENDIF
+
+      SS=0D0
+      IF(PROP(9).EQ.1D0)THEN
+         SS=MAX(0D0,PROP(7)*(HIST(6)*PROP(1)-PROP(2)*PROP(8)))
+         HIST(6)=MAX(ABS(TE),HIST(6)) ! MAXIMUM STRAIN
+      ENDIF
+
+C     DETERMINE THE NEW LOAD DIRECTION
+      IF(IE.GT.0D0)THEN
+         TLS=1D0
+      ELSE
+         TLS=-1D0
+      ENDIF
+
+      IF(TLS.NE.HIST(7))THEN
+         IF(HIST(7).NE.0D0)THEN
+            HIST(1)=CS
+            HIST(2)=CE
+            HIST(5)=HIST(4)
+            HIST(4)=PROP(2)*PROP(3)-PROP(2)-SS
+            IF(TLS.GT.0D0)HIST(4)=-HIST(4)
+            HIST(4)=(HIST(4)+PROP(1)*CE-CS)/(PROP(1)-PROP(1)*PROP(3))
+            HIST(3)=PROP(1)*(HIST(4)-HIST(2))+HIST(1)
+         ELSEIF(TLS.GT.0D0)THEN
+            HIST(3)=PROP(2)
+            HIST(4)=PROP(2)/PROP(1)
+         ELSE
+            HIST(3)=-PROP(2)
+            HIST(4)=-PROP(2)/PROP(1)
+         ENDIF
+         HIST(7)=TLS
+      ENDIF
+
+      TR=PROP(4)
+      IF(PROP(10).EQ.0D0)THEN
+         XI=ABS(HIST(2)-HIST(5))/PROP(2)*PROP(1)
+         TR=TR-PROP(5)*XI/(PROP(6)+XI)
+      ENDIF
+
+      TMPA=HIST(4)-HIST(2)
+      TMPD=HIST(3)-HIST(1)
+      NE=MAX(EPSILON(TMPA),(TE-HIST(2))/TMPA)
+      TMPB=1D0+NE**TR
+      TMPC=(1D0-PROP(3))*TMPB**(-1D0/TR)
+      NS=(PROP(3)+TMPC)*NE
+
+      TS=NS*TMPD+HIST(1)
+      TK=TMPD/TMPA*(PROP(3)+TMPC/TMPB)
+
+   90 END SUBROUTINE

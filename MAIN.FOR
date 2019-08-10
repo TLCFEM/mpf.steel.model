@@ -1,0 +1,28 @@
+      PROGRAM MAIN
+
+      EXTERNAL MPFSTEEL
+
+      INTEGER I
+      DOUBLEPRECISION TE,TS,TK,CE,CS,CK,HIST(7),PROP(10)
+      DATA PROP /2D5,4D2,1D-2,2D1,185D-1,15D-2,1D-2,7D0,0D0,0D0/
+      DATA HIST /0D0,0D0,0D0,0D0,0D0,0D0,0D0/
+
+      DO I=1,100
+         TE=TE+2D-4
+         CALL MPFSTEEL(TE,TS,TK,CE,CS,CK,HIST,PROP)
+         PRINT *,TE,TS,TK
+         CE=TE
+         CS=TS
+         CK=TK
+      ENDDO
+
+      DO I=1,100
+         TE=TE-2D-4
+         CALL MPFSTEEL(TE,TS,TK,CE,CS,CK,HIST,PROP)
+         PRINT *,TE,TS,TK
+         CE=TE
+         CS=TS
+         CK=TK
+      ENDDO
+
+      END
